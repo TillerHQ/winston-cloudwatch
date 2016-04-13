@@ -4,12 +4,18 @@ describe('cloudwatch-integration', function() {
       should = require('should'),
       mockery = require('mockery');
 
-  var stubbedWinston = {
-    Transport: function() {}
+  var stubbedTransport = function() {
   };
+  stubbedTransport.prototype.emit = sinon.spy();
+
+  var stubbedWinston = {
+    Transport: stubbedTransport,
+  };
+
   var stubbedAWS = {
     CloudWatchLogs: function() {}
   };
+
   var stubbedCloudwatchIntegration = {
     upload: sinon.spy(function(aws, groupName, streamName, logEvents, cb) {
       this.lastLoggedEvents = logEvents.splice(0, 20);
@@ -103,6 +109,24 @@ describe('cloudwatch-integration', function() {
           message.should.equal('custom formatted log message');
         });
       });
+    });
+  });
+  describe('close', function() {
+    var transport;
+    before(function() {
+      transport = new WinstonCloudWatch({});
+      stubbedCloudwatchIntegration.upload.reset();
+      transport.emit.reset();
+      transport.close();
+    });
+    it('uploads outstanding logs immediately', function() {
+      stubbedCloudwatchIntegration.upload.should.be.calledOnce;
+    });
+    it('emits a flush event', function() {
+      transport.emit.calledWith('flush').should.be.true;
+    });
+    it('emites a closed event', function() {
+      transport.emit.calledWith('close').should.be.true;
     });
   });
 });

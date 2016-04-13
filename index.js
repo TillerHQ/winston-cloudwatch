@@ -78,5 +78,24 @@ class WinstonCloudWatch extends winston.Transport {
 
 function stringify(o) { return JSON.stringify(o, null, '  '); }
 
+//
+// ### function close ()
+// Flushes the AWS CloudWatchLogs in this transport,
+// using the same event emitter semantics as the File transport
+//
+WinstonCloudWatch.prototype.close = function () {
+  var self = this;
+
+  cloudWatchIntegration.upload(
+    self.cloudwatchlogs,
+    self.logGroupName,
+    self.logStreamName,
+    self.logEvents,
+    function(err) {
+      if (err) return console.log(err, err.stack);
+      self.emit('flush');
+      self.emit('closed');
+    });
+};
 
 module.exports = WinstonCloudWatch;
