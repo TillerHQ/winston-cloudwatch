@@ -41,6 +41,25 @@ var WinstonCloudWatch = function(options) {
   } else {
     this.cloudwatchlogs = new AWS.CloudWatchLogs();
   }
+
+  this.uploadHelper = function(cb) {
+    var self = this;
+
+    if (!cb) {
+      cb = function(err) {
+        if (err) return console.log(err, err.stack);
+      }
+    }
+
+    cloudWatchIntegration.upload(
+      self.cloudwatchlogs,
+      self.logGroupName,
+      self.logStreamName,
+      self.logEvents,
+      cb);
+
+  };
+
 }
 
 util.inherits(WinstonCloudWatch, winston.Transport);
@@ -53,6 +72,7 @@ WinstonCloudWatch.prototype.log = function(level, msg, meta, callback) {
   callback(null, true);
 };
 
+
 WinstonCloudWatch.prototype.add = function(log) {
   var self = this;
 
@@ -63,14 +83,7 @@ WinstonCloudWatch.prototype.add = function(log) {
 
   if (!self.intervalId) {
     self.intervalId = setInterval(function() {
-      cloudWatchIntegration.upload(
-        self.cloudwatchlogs,
-        self.logGroupName,
-        self.logStreamName,
-        self.logEvents,
-        function(err) {
-          if (err) return console.log(err, err.stack);
-        });
+      self.uploadHelper()
     }, self.uploadRate);
   }
 };
@@ -85,16 +98,11 @@ function stringify(o) { return JSON.stringify(o, null, '  '); }
 WinstonCloudWatch.prototype.close = function () {
   var self = this;
 
-  cloudWatchIntegration.upload(
-    self.cloudwatchlogs,
-    self.logGroupName,
-    self.logStreamName,
-    self.logEvents,
-    function(err) {
-      if (err) return console.log(err, err.stack);
-      self.emit('flush');
-      self.emit('closed');
-    });
+  this.uploadHelper(function(err) {
+    if (err) console.log(err, err.stack);
+    self.emit('flush');
+    self.emit('closed');
+  });
 };
 
 module.exports = WinstonCloudWatch;
