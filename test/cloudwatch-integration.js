@@ -32,6 +32,17 @@ describe('cloudwatch-integration', function() {
       });
     });
 
+    it('limits log events to the AWS constraint', function(done) {
+      lib.upload(aws, 'group', 'stream', Array(20000), function() {
+        aws.putLogEvents.calledOnce.should.equal(true);
+        aws.putLogEvents.args[0][0].logGroupName.should.equal('group');
+        aws.putLogEvents.args[0][0].logStreamName.should.equal('stream');
+        aws.putLogEvents.args[0][0].logEvents.length.should.equal(10000);
+        aws.putLogEvents.args[0][0].sequenceToken.should.equal('token');
+        done();
+      });
+    });
+
     it('adds token to the payload only if it exists', function(done) {
       lib.getToken.yields(null);
       lib.upload(aws, 'group', 'stream', Array(20), function() {
