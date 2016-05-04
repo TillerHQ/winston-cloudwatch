@@ -22,6 +22,9 @@ var WinstonCloudWatch = function(options) {
   var proxyServer = this.proxyServer = options.proxyServer;
   this.uploadRate = options.uploadRate || 2000;
   this.logEvents = [];
+  this.errorHandler = options.errorHandler ? options.errorHandler : function(err) {
+    console.error(err);
+  };
 
   if (this.proxyServer) {
     AWS.config.update({
@@ -47,7 +50,7 @@ var WinstonCloudWatch = function(options) {
 
     if (!cb) {
       cb = function(err) {
-        if (err) return console.log(err, err.stack);
+        if (err) return self.errorHandler(err);
       }
     }
 
@@ -58,10 +61,9 @@ var WinstonCloudWatch = function(options) {
         self.logStreamName,
         self.logEvents,
         cb);
-    }
-  };
-
-}
+     }
+   };
+};
 
 util.inherits(WinstonCloudWatch, winston.Transport);
 
@@ -100,9 +102,9 @@ WinstonCloudWatch.prototype.close = function () {
   var self = this;
 
   this.uploadHelper(function(err) {
-    if (err) console.log(err, err.stack);
     self.emit('flush');
     self.emit('closed');
+    if (err) return self.errorHandler(err);
   });
 };
 
