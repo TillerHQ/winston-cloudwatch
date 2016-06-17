@@ -19,7 +19,7 @@ describe('winston-cloudwatch', function() {
   var stubbedCloudwatchIntegration = {
     upload: sinon.spy(function(aws, groupName, streamName, logEvents, cb) {
       this.lastLoggedEvents = logEvents.splice(0, 20);
-      cb();
+      cb(stubbedCloudwatchIntegration.error);
     })
   };
   var clock = sinon.useFakeTimers();
@@ -114,17 +114,13 @@ describe('winston-cloudwatch', function() {
 
     describe('handles error', function() {
 
-      beforeEach(function() {
-        stubbedCloudwatchIntegration.upload = sinon.stub().yields('ERROR');
-        mockery.registerMock('./lib/cloudwatch-integration', stubbedCloudwatchIntegration);
+      before(function() {
+        stubbedCloudwatchIntegration.error = 'ERROR';
         sinon.stub(console, 'error');
       });
 
-      afterEach(function() {
-        stubbedCloudwatchIntegration = {
-          upload: sinon.spy()
-        };
-        mockery.registerMock('./lib/cloudwatch-integration', stubbedCloudwatchIntegration);
+      after(function() {
+        delete stubbedCloudwatchIntegration.error;
         console.error.restore();
       });
 
@@ -149,20 +145,42 @@ describe('winston-cloudwatch', function() {
   });
   describe('close', function() {
     var transport;
-    before(function() {
-      transport = new WinstonCloudWatch({});
-      stubbedCloudwatchIntegration.upload.reset();
-      transport.emit.reset();
-      transport.close();
+    context('when empty', function() {
+      before(function() {
+        transport = new WinstonCloudWatch({});
+        stubbedCloudwatchIntegration.upload.reset();
+        transport.emit.reset();
+        transport.close();
+      });
+      it('does not try to upload anything', function() {
+        stubbedCloudwatchIntegration.upload.calledOnce.should.equal(false);
+      });
+      it('emits a flush event', function() {
+        transport.emit.calledWith('flush').should.equal(true);
+      });
+      it('emits a closed event', function() {
+        transport.emit.calledWith('close').should.equal(true);
+      });
     });
-    it('uploads outstanding logs immediately', function() {
-      stubbedCloudwatchIntegration.upload.should.be.calledOnce;
-    });
-    it('emits a flush event', function() {
-      transport.emit.calledWith('flush').should.be.true;
-    });
-    it('emites a closed event', function() {
-      transport.emit.calledWith('close').should.be.true;
+    context('when there are log messages in the queue', function() {
+      before(function(done) {
+        transport = new WinstonCloudWatch({});
+        stubbedCloudwatchIntegration.upload.reset();
+        transport.emit.reset();
+        transport.log('level', 'message', {}, function() {
+          transport.close();
+          done();
+        });
+      });
+      it('uploads outstanding logs immediately', function() {
+        stubbedCloudwatchIntegration.upload.calledOnce.should.equal(true);
+      });
+      it('emits a flush event', function() {
+        transport.emit.calledWith('flush').should.equal(true);
+      });
+      it('emits a closed event', function() {
+        transport.emit.calledWith('close').should.equal(true);
+      });
     });
   });
 });

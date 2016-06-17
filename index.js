@@ -54,14 +54,16 @@ var WinstonCloudWatch = function(options) {
       }
     }
 
-    if (self.logEvents.length > 0) {
-      cloudWatchIntegration.upload(
-        self.cloudwatchlogs,
-        self.logGroupName,
-        self.logStreamName,
-        self.logEvents,
-        cb);
-     }
+    if (self.logEvents.length < 1) {
+      return cb();
+    }
+
+    cloudWatchIntegration.upload(
+      self.cloudwatchlogs,
+      self.logGroupName,
+      self.logStreamName,
+      self.logEvents,
+      cb);
    };
 };
 
@@ -103,7 +105,7 @@ WinstonCloudWatch.prototype.close = function () {
 
   this.uploadHelper(function(err) {
     self.emit('flush');
-    self.emit('closed');
+    self.emit('close');
     if (err) return self.errorHandler(err);
   });
 };
